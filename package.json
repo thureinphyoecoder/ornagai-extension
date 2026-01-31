@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "rabbit-node": "^1.0.4"
+  }
+}
