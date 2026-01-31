@@ -39,16 +39,41 @@ chrome.runtime.onInstalled.addListener(async () => {
   };
 });
 
-chrome.runtime.onMessage.addListener((msg, sender, send) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type !== "LOOKUP") return;
 
+  console.log("LOOKUP received:", msg.word);
+
   openDB().then((db) => {
-    const tx = db.transaction(STORE, "readonly");
-    const store = tx.objectStore(STORE);
+    const tx = db.transaction("dict", "readonly");
+    const store = tx.objectStore("dict");
 
     const req = store.get(msg.word);
-    req.onsuccess = () => send(req.result || null);
+
+    req.onsuccess = () => {
+      console.log("LOOKUP result:", req.result);
+      sendResponse(req.result || null);
+    };
+
+    req.onerror = () => {
+      sendResponse(null);
+    };
   });
 
-  return true; // async response
+  return true; // 🔑 VERY IMPORTANT
 });
+
+const DEFAULT_SETTINGS = {
+  autoPopup: true,
+  ctrlOnly: false,
+};
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.storage.local.set(DEFAULT_SETTINGS);
+});
+
+function getSettings() {
+  return new Promise((res) => {
+    chrome.storage.local.get(DEFAULT_SETTINGS, res);
+  });
+}

@@ -1,0 +1,77 @@
+#ornagai-popup {
+  position: absolute;
+  max-width: 240px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: #1b1b1b;
+  color: #eee;
+  border-radius: 8px;
+  padding: 8px;
+  z-index: 2147483647;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+}
+
+#ornagai-popup .ornagai-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+#ornagai-popup .ornagai-header b {
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+
+#ornagai-popup .ornagai-close {
+  font-size: 12px;
+  opacity: 0.4;
+}
+
+#ornagai-popup .ornagai-close:hover {
+  opacity: 1;
+}
+
+#ornagai-popup .ornagai-body {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #ddd;
+  background: #151515;
+  border-radius: 6px;
+  padding: 6px;
+}
+
+#ornagai-popup .badge {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #aaa;
+}
+
+#ornagai-popup .note {
+  margin-top: 4px;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+#ornagai-popup {
+  animation: pop 120ms ease-out;
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

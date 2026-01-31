@@ -25,7 +25,7 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["data/ornagai.json"],
+      "resources": ["data/ornagai.json", "styles/inline-popup.css"],
       "matches": ["<all_urls>"]
     }
   ]
