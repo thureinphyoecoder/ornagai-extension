@@ -2,118 +2,54 @@ const fs = require("fs");
 const path = require("path");
 const rabbit = require("rabbit-node");
 
-// ---------------- helpers ----------------
+async function startConversion() {
+  const SQL_PATH = path.join(__dirname, "../source/dictionary2.sql");
+  const OUT_PATH = path.join(__dirname, "../extension/data/ornagai.json");
 
-// extract clean key and optional note from brackets
-function cleanWord(raw) {
-  const m = raw.match(/^(.+?)(?:\s*\((.+)\))?$/);
-  return {
-    word: m[1].trim().toLowerCase(),
-    note: m[2]?.trim() || null,
-  };
-}
+  const sqlContent = fs.readFileSync(SQL_PATH, "utf8");
+  const dict = {};
+  let recordCount = 0;
 
-// normalize part-of-speech / type
-function normalizeType(rawType, word, note) {
-  if (!rawType) return "unknown";
-  const t = rawType.toLowerCase();
+  console.log("🚀 Ornagai SQL to Unicode JSON is running...");
 
-  // 1️⃣ Trust explicit SQL type first
-  if (t.includes("adj")) return "adj";
-  if (t.includes("suff")) return "suff";
-  if (t.includes("idm")) return "idm";
-  if (t.includes("adv")) return "adv";
-  if (t === "n") return "n";
-  if (t === "v") return "v";
+  // dblist VALUES(1, 'word', 'type', 'meaning', '1', 0); ပုံစံကို ဖမ်းမယ်
+  // Regex ကို ပိုပြီး တိကျအောင် ပြင်ထားပါတယ်
+  const recordRegex = /VALUES\s*\((.*?)\);/gs;
+  const rowRegex = /\(\s*\d+\s*,\s*'(.*?)'\s*,\s*'(.*?)'\s*,\s*'(.*?)'/g;
 
-  // 2️⃣ Heuristic fallback only if type unclear
-  if (
-    word.startsWith("_") ||
-    word.startsWith("-") ||
-    (note && note.toLowerCase().includes("compound"))
-  ) {
-    return "suff";
+  let match;
+  while ((match = rowRegex.exec(sqlContent)) !== null) {
+    const rawWord = match[1];
+    const rawType = match[2];
+    const rawMeaning = match[3];
+
+    // ၁။ Zawgyi to Unicode အရင်ပြောင်း
+    let uni = rabbit.zg2uni(rawMeaning);
+
+    // ၂။ Space တွေ၊ Pipe တွေကို ရှင်းထုတ်မယ်
+    let cleanMM = uni
+      .replace(/\|/g, "") // Pipe ဖြုတ်
+      .replace(/\\r|\\n/g, " ") // Newline ရှင်း
+      // မြန်မာစာလုံးအချင်းချင်းကြားက အပို space တွေကို ရှင်းတဲ့ အဓိက Regex
+      .replace(/([\u1000-\u104F])\s+(?=[\u1000-\u104F\u102B-\u103E])/g, "$1")
+      .replace(/\s+/g, " ") // အပို space ကြီးတွေကို တစ်ခုတည်းဖြစ်အောင်လုပ်
+      .trim();
+
+    // ၃။ Word ကို Clean လုပ်မယ်
+    const wordKey = rawWord.trim().toLowerCase();
+
+    dict[wordKey] = {
+      type: rawType.trim() || "unknown",
+      mm: cleanMM,
+    };
+
+    recordCount++;
+    if (recordCount % 1000 === 0) process.stdout.write(`\r⏳ Converted: ${recordCount} words...`);
   }
 
-  return "unknown";
+  fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
+  fs.writeFileSync(OUT_PATH, JSON.stringify(dict, null, 2), "utf8");
+  console.log(`\n\n✨ Success! Total ${recordCount} entries converted.`);
 }
 
-// very simple English detector
-function looksEnglish(text) {
-  return /^[a-z0-9\s\-]+$/i.test(text);
-}
-
-// clean English explanation
-function cleanEnglish(en) {
-  return en
-    .replace(/\s+/g, " ")
-    .replace(/\s-\s/g, "-")
-    .replace(/[\.]+$/, "")
-    .trim();
-}
-
-// ---------------- paths ----------------
-
-const SQL_PATH = path.join(__dirname, "../source/dictionary2.sql");
-const OUT_PATH = path.join(__dirname, "../extension/data/ornagai.json");
-
-// ---------------- main ----------------
-
-const sql = fs.readFileSync(SQL_PATH, "utf8");
-const rows = sql.match(/INSERT INTO.*?VALUES\s*\((.*?)\);/gi);
-
-if (!rows) {
-  console.error("❌ No INSERT statements found");
-  process.exit(1);
-}
-
-const dict = {};
-let unknownTypeCount = 0;
-
-for (const row of rows) {
-  const body = row.match(/\((.*)\)/)[1];
-
-  // split CSV safely (ignore commas inside quotes)
-  const parts = body
-    .split(/,(?=(?:[^']*'[^']*')*[^']*$)/)
-    .map((v) => v.trim().replace(/^'|'$/g, ""));
-
-  const rawWord = parts[1];
-  const rawType = parts[2];
-  let rawMeaning = parts[3];
-
-  if (!rawWord || !rawMeaning) continue;
-
-  const { word, note } = cleanWord(rawWord);
-  const type = normalizeType(rawType, word, note);
-
-  if (type === "unknown") unknownTypeCount++;
-
-  // Zawgyi -> Unicode
-  rawMeaning = rabbit.zg2uni(rawMeaning).trim();
-
-  let en = null;
-  let mm = null;
-
-  if (looksEnglish(rawMeaning)) {
-    en = cleanEnglish(rawMeaning);
-  } else {
-    mm = rawMeaning;
-  }
-
-  dict[word] = {
-    type,
-    ...(en ? { en } : {}),
-    ...(mm ? { mm } : {}),
-    ...(note ? { note } : {}),
-  };
-}
-
-// write output
-fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
-fs.writeFileSync(OUT_PATH, JSON.stringify(dict, null, 2), "utf8");
-
-// summary
-console.log(`✔ Converted ${Object.keys(dict).length} entries`);
-console.log(`⚠ Unknown type entries: ${unknownTypeCount}`);
-console.log(`✔ Output -> ${OUT_PATH}`);
+startConversion().catch(console.error);

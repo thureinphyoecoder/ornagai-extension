@@ -1,14 +1,41 @@
 const search = document.getElementById("search");
-
 const resultBox = document.getElementById("result");
 const emptyBox = document.getElementById("empty");
 
-const rWord = document.getElementById("r-word");
-const rType = document.getElementById("r-type");
-const rEn = document.getElementById("r-en");
-const rMm = document.getElementById("r-mm");
-const rNote = document.getElementById("r-note");
+const DEFAULT_SETTINGS = {
+  autoPopup: true,
+  ctrlOnly: false,
+};
 
+const typeMapping = {
+  n: "noun",
+  v: "verb",
+  adj: "adjective",
+  adv: "adverb",
+  interj: "interjection",
+  suff: "suffix",
+  prep: "preposition",
+  pron: "pronoun",
+};
+
+// ---------- helpers ----------
+function safeSend(msg, cb) {
+  try {
+    chrome.runtime.sendMessage(msg, (res) => {
+      if (chrome.runtime.lastError) return;
+      cb?.(res);
+    });
+  } catch (_) {}
+}
+
+function speak(text) {
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-US";
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(u);
+}
+
+// ---------- search ----------
 search.addEventListener("input", () => {
   const word = search.value.trim().toLowerCase();
 
@@ -17,7 +44,7 @@ search.addEventListener("input", () => {
     return;
   }
 
-  chrome.runtime.sendMessage({ type: "LOOKUP", word }, (data) => {
+  safeSend({ type: "LOOKUP", word }, (data) => {
     if (!data) {
       showEmpty("Not found");
       return;
@@ -26,25 +53,40 @@ search.addEventListener("input", () => {
   });
 });
 
+// ---------- render ----------
 function renderResult(word, data) {
   emptyBox.classList.add("hidden");
   resultBox.classList.remove("hidden");
 
+  const fullType = typeMapping[data.type] || data.type;
+
   resultBox.innerHTML = `
     <div class="result-item">
-      <div class="result-word">
-        <span class="word">${word}</span>
-        <span class="badge ${data.type === "unknown" ? "unknown" : ""}">
-          ${data.type}
-        </span>
+      <div class="ornagai-header">
+        <div class="word-group">
+          <span class="word-text">${word}</span>
+          <button class="audio-btn" data-tts="${word}">🔊</button>
+        </div>
+        <span class="badge">${fullType}</span>
       </div>
-      ${
-        data.mm
-          ? `<div class="meaning">${data.mm}</div>`
-          : data.en
-            ? `<div class="meaning">${data.en}</div>`
-            : ""
-      }
+
+      <div class="meaning">${data.mm || data.en}</div>
+
+      ${renderExamples(data.example)}
+      ${data.note ? `<div class="note">${data.note}</div>` : ""}
+    </div>
+  `;
+
+  const ttsBtn = resultBox.querySelector(".audio-btn");
+  if (ttsBtn) ttsBtn.onclick = () => speak(word);
+}
+
+function renderExamples(examples = []) {
+  if (!examples.length) return "";
+  return `
+    <div class="example-box">
+      <div class="example-label">EXAMPLES</div>
+      ${examples.map((ex) => `<div class="example-item">• ${ex}</div>`).join("")}
     </div>
   `;
 }
@@ -55,34 +97,51 @@ function showEmpty(text) {
   emptyBox.textContent = text;
 }
 
+// ---------- settings ----------
 const menuBtn = document.getElementById("menuBtn");
 const menu = document.getElementById("menu");
 const auto = document.getElementById("autoPopup");
 const ctrl = document.getElementById("ctrlOnly");
 
-// toggle dropdown (STOP propagation)
-menuBtn.addEventListener("click", (e) => {
+menuBtn.onclick = (e) => {
   e.stopPropagation();
   menu.classList.toggle("hidden");
-});
+};
 
-// prevent menu click from closing itself
-menu.addEventListener("click", (e) => {
-  e.stopPropagation();
-});
+menu.onclick = (e) => e.stopPropagation();
 
-// close menu when clicking outside
 document.addEventListener("click", () => {
   menu.classList.add("hidden");
 });
 
-// load settings
-chrome.storage.local.get({ autoPopup: true, ctrlOnly: false }, (s) => {
+// initial load
+chrome.storage.local.get(DEFAULT_SETTINGS, (s) => {
   auto.checked = s.autoPopup;
   ctrl.checked = s.ctrlOnly;
 });
 
-// save settings
-auto.onchange = () => chrome.storage.local.set({ autoPopup: auto.checked });
+auto.addEventListener("change", () => {
+  if (auto.checked) {
+    ctrl.checked = false;
+    chrome.storage.local.set({
+      autoPopup: true,
+      ctrlOnly: false,
+    });
+  } else {
+    // prevent both off
+    auto.checked = true;
+  }
+});
 
-ctrl.onchange = () => chrome.storage.local.set({ ctrlOnly: ctrl.checked });
+// ctrl-only checked
+ctrl.addEventListener("change", () => {
+  if (ctrl.checked) {
+    auto.checked = false;
+    chrome.storage.local.set({
+      autoPopup: false,
+      ctrlOnly: true,
+    });
+  } else {
+    ctrl.checked = true;
+  }
+});

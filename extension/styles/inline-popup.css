@@ -1,77 +1,142 @@
-#ornagai-popup {
-  position: absolute;
-  max-width: 240px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  background: #1b1b1b;
-  color: #eee;
-  border-radius: 8px;
-  padding: 8px;
-  z-index: 2147483647;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
-  font-family:
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    sans-serif;
+@font-face {
+  font-family: "MyanmarSans";
+  src: url("../fonts/NotoSansMyanmar-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
 }
 
-#ornagai-popup .ornagai-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 4px;
-}
-
-#ornagai-popup .ornagai-header b {
-  font-size: 12px;
-  font-weight: 600;
-  color: #fff;
-}
-
-#ornagai-popup .ornagai-close {
-  font-size: 12px;
-  opacity: 0.4;
-}
-
-#ornagai-popup .ornagai-close:hover {
-  opacity: 1;
-}
-
-#ornagai-popup .ornagai-body {
-  font-size: 13px;
-  line-height: 1.4;
-  color: #ddd;
-  background: #151515;
-  border-radius: 6px;
-  padding: 6px;
-}
-
-#ornagai-popup .badge {
-  font-size: 9px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: #aaa;
-}
-
-#ornagai-popup .note {
-  margin-top: 4px;
-  font-size: 11px;
-  opacity: 0.6;
+@font-face {
+  font-family: "MyanmarSans";
+  src: url("../fonts/NotoSansMyanmar-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
 }
 
 #ornagai-popup {
-  animation: pop 120ms ease-out;
+  position: absolute !important;
+  z-index: 2147483647 !important;
+  min-width: 240px;
+  max-width: 320px;
+  background: rgba(30, 30, 46, 0.98) !important;
+  color: #cdd6f4 !important;
+  border-radius: 14px !important;
+  padding: 14px !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(12px);
+  font-family: "MyanmarSans", sans-serif !important;
+  animation: slideIn 0.2s ease-out;
 }
 
-@keyframes pop {
+/* Header & Word Section */
+.ornagai-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  margin-bottom: 12px !important;
+  padding-bottom: 8px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.word-wrapper {
+  display: flex !important;
+  align-items: baseline !important; /* စာလုံးနဲ့ badge အောက်ခြေ ညီအောင် */
+  gap: 10px !important;
+}
+
+.word-title {
+  font-size: 18px !important;
+  color: #89b4fa !important;
+  text-transform: capitalize !important;
+  line-height: 1.2 !important; /* Word ရဲ့ အမြင့်ကိုလည်း ထိန်းထားမယ် */
+}
+
+/* New Pill Badge Design */
+.badge {
+  font-family: sans-serif !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+
+  /* Layout logic */
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  height: 18px !important;
+  padding: 0 10px !important;
+
+  /* Aesthetics */
+  background: rgba(137, 180, 250, 0.12) !important;
+  color: #89b4fa !important;
+  border: 1px solid rgba(137, 180, 250, 0.3) !important;
+  border-radius: 50px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+
+  /* Position */
+  margin-left: 8px !important;
+  vertical-align: middle !important; /* Word Title နဲ့ ညီအောင် */
+}
+
+/* Body & Content */
+.ornagai-body .meaning {
+  font-family: "MyanmarSans", sans-serif !important;
+  font-size: 15px !important;
+  line-height: 2 !important;
+  color: #bac2de !important;
+}
+
+.note {
+  margin-top: 10px !important;
+  font-size: 12px !important;
+  color: #a6adc8 !important;
+  background: rgba(0, 0, 0, 0.2) !important;
+  padding: 8px !important;
+  border-left: 3px solid #f9e2af !important;
+  border-radius: 4px !important;
+}
+
+/* Actions */
+.popup-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.audio-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: none !important;
+  color: #cdd6f4 !important;
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: 0.2s !important;
+}
+
+.audio-btn:hover {
+  background: #89b4fa !important;
+  color: #1e1e2e !important;
+}
+
+.ornagai-close {
+  cursor: pointer !important;
+  font-size: 18px !important;
+  color: #f38ba8 !important;
+  padding: 0 4px !important;
+}
+
+@keyframes slideIn {
   from {
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(8px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }

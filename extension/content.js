@@ -1,7 +1,3 @@
-// ==============================
-// Ornagai Inline Popup – content.js
-// ==============================
-
 let popupEl = null;
 let lastWord = null;
 
@@ -10,11 +6,17 @@ let settings = {
   ctrlOnly: false,
 };
 
-// ------------------------------
-// Load inline popup CSS (scoped)
-// ------------------------------
+const TYPE_MAP = {
+  n: "noun",
+  v: "verb",
+  adj: "adjective",
+  adv: "adverb",
+  interj: "interjection",
+};
+
+// ---------------- CSS inject ----------------
 (function loadInlineCSS() {
-  const id = "ornagai-popup-style";
+  const id = "ornagai-inline-style";
   if (document.getElementById(id)) return;
 
   const link = document.createElement("link");
@@ -24,119 +26,112 @@ let settings = {
   document.head.appendChild(link);
 })();
 
-// ------------------------------
-// Settings sync
-// ------------------------------
+// ---------------- settings sync ----------------
 chrome.storage.local.get(settings, (s) => {
   settings = { ...settings, ...s };
 });
 
-chrome.storage.onChanged.addListener((changes) => {
-  if (changes.autoPopup) settings.autoPopup = changes.autoPopup.newValue;
-  if (changes.ctrlOnly) settings.ctrlOnly = changes.ctrlOnly.newValue;
+chrome.storage.onChanged.addListener((c) => {
+  if (c.autoPopup) settings.autoPopup = c.autoPopup.newValue;
+  if (c.ctrlOnly) settings.ctrlOnly = c.ctrlOnly.newValue;
 });
 
-// ------------------------------
-// Safe sendMessage wrapper
-// (prevents context invalidated crash)
-// ------------------------------
-function safeSendMessage(message, callback) {
+// ---------------- safe message ----------------
+function safeSend(msg, cb) {
   try {
-    chrome.runtime.sendMessage(message, (response) => {
-      if (chrome.runtime.lastError) {
-        // extension reloaded / context dead
-        return;
-      }
-      callback?.(response);
+    chrome.runtime.sendMessage(msg, (res) => {
+      if (chrome.runtime.lastError) return;
+      cb?.(res);
     });
-  } catch (e) {
-    // context invalidated (dev reload)
-    console.warn("Ornagai: extension context invalidated");
-  }
+  } catch (_) {}
 }
 
-// ------------------------------
-// Selection handler
-// ------------------------------
+// ---------------- TTS ----------------
+function speakWord(word) {
+  if (!("speechSynthesis" in window)) return;
+
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(word);
+    u.lang = "en-US";
+    u.rate = 0.95;
+    window.speechSynthesis.speak(u);
+  } catch (_) {}
+}
+
+// ---------------- selection handler ----------------
 document.addEventListener("mouseup", (e) => {
-  const selection = window.getSelection();
-  if (!selection || !selection.toString) return;
+  const sel = window.getSelection();
+  const word = sel.toString().trim().toLowerCase();
 
-  const word = selection.toString().trim().toLowerCase();
-
-  if (!word) return;
-  if (word.includes(" ")) return;
+  if (!word || word.includes(" ")) return;
   if (word === lastWord) return;
 
-  if (!settings.autoPopup) return;
+  // 🔑 trigger rules
   if (settings.ctrlOnly && !e.ctrlKey) return;
+  if (!settings.ctrlOnly && !settings.autoPopup) return;
 
   lastWord = word;
 
-  safeSendMessage({ type: "LOOKUP", word }, (data) => {
-    if (!data) {
-      destroyPopup();
-      return;
-    }
-    showPopup(word, data);
+  safeSend({ type: "LOOKUP", word }, (data) => {
+    if (!data) return destroyPopup();
+    showPopup(word, data, sel);
   });
 });
 
-// ------------------------------
-// Popup render
-// ------------------------------
-function showPopup(word, data) {
-  if (!popupEl) {
-    popupEl = document.createElement("div");
-    popupEl.id = "ornagai-popup";
-    document.body.appendChild(popupEl);
-  }
+// ---------------- popup render ----------------
+function showPopup(word, data, sel) {
+  destroyPopup();
+
+  popupEl = document.createElement("div");
+  popupEl.id = "ornagai-popup";
+
+  const type = TYPE_MAP[data.type] || data.type || "";
 
   popupEl.innerHTML = `
     <div class="ornagai-header">
-      <b>${word}</b>
-      <span class="ornagai-close">×</span>
+      <div class="word-row">
+        <b>${word}</b>
+        ${type ? `<span class="badge">${type}</span>` : ""}
+      </div>
+      <div class="popup-actions">
+        <button class="audio-btn" title="Pronounce">🔊</button>
+        <span class="ornagai-close">×</span>
+      </div>
     </div>
     <div class="ornagai-body">
-      ${data.mm ? `<div class="meaning">${data.mm}</div>` : ""}
-      ${data.en ? `<div class="meaning">${data.en}</div>` : ""}
+      <div class="meaning">${data.mm || data.en}</div>
       ${data.note ? `<div class="note">${data.note}</div>` : ""}
     </div>
   `;
 
+  document.body.appendChild(popupEl);
+
+  // events
   popupEl.querySelector(".ornagai-close").onclick = destroyPopup;
 
-  positionPopup();
-}
+  const audioBtn = popupEl.querySelector(".audio-btn");
+  if (audioBtn) audioBtn.onclick = () => speakWord(word);
 
-// ------------------------------
-// Position popup near selection
-// ------------------------------
-function positionPopup() {
-  const sel = window.getSelection();
-  if (!sel.rangeCount) return;
-
+  // position (viewport safe)
   const rect = sel.getRangeAt(0).getBoundingClientRect();
+  const maxLeft = window.innerWidth - popupEl.offsetWidth - 12;
 
-  popupEl.style.top = `${rect.bottom + window.scrollY + 6}px`;
-  popupEl.style.left = `${rect.left + window.scrollX}px`;
+  popupEl.style.top = `${rect.bottom + 8}px`;
+  popupEl.style.left = `${Math.min(rect.left, maxLeft)}px`;
 }
 
-// ------------------------------
-// Close logic
-// ------------------------------
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") destroyPopup();
+// ---------------- close handlers ----------------
+document.addEventListener("mousedown", (e) => {
+  if (popupEl && !popupEl.contains(e.target)) destroyPopup();
 });
 
-document.addEventListener("mousedown", (e) => {
-  if (popupEl && !popupEl.contains(e.target)) {
-    destroyPopup();
-  }
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") destroyPopup();
 });
 
 function destroyPopup() {
   popupEl?.remove();
   popupEl = null;
-  lastWord = null;
+  lastWord = null; // ⭐ important
 }

@@ -2,7 +2,14 @@ const DB_NAME = "ornagai_db";
 const DB_VERSION = 1;
 const STORE = "dict";
 
-function openDB() {
+let dbInstance = null;
+
+// -------------------------------
+// Open / Get IndexedDB (singleton)
+// -------------------------------
+function getDB() {
+  if (dbInstance) return Promise.resolve(dbInstance);
+
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
 
@@ -13,67 +20,97 @@ function openDB() {
       }
     };
 
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      dbInstance = req.result;
+      resolve(dbInstance);
+    };
+
     req.onerror = () => reject(req.error);
   });
 }
 
-chrome.runtime.onInstalled.addListener(async () => {
-  const db = await openDB();
+// -------------------------------
+// Ensure DB is seeded (idempotent)
+// -------------------------------
+async function ensureDBReady() {
+  const db = await getDB();
 
-  const tx = db.transaction(STORE, "readonly");
-  const store = tx.objectStore(STORE);
+  return new Promise((resolve) => {
+    const tx = db.transaction(STORE, "readonly");
+    const store = tx.objectStore(STORE);
+    const countReq = store.count();
 
-  const countReq = store.count();
-  countReq.onsuccess = async () => {
-    if (countReq.result > 0) return; // already seeded
+    countReq.onsuccess = async () => {
+      // already seeded
+      if (countReq.result > 0) {
+        resolve();
+        return;
+      }
 
-    const data = await fetch(chrome.runtime.getURL("data/ornagai.json")).then((r) => r.json());
+      console.log("[Ornagai] Seeding database…");
 
-    const wtx = db.transaction(STORE, "readwrite");
-    const wstore = wtx.objectStore(STORE);
+      const data = await fetch(chrome.runtime.getURL("data/ornagai.json")).then((r) => r.json());
 
-    for (const word in data) {
-      wstore.put({ word, ...data[word] });
-    }
-  };
-});
+      const wtx = db.transaction(STORE, "readwrite");
+      const wstore = wtx.objectStore(STORE);
 
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type !== "LOOKUP") return;
+      for (const word in data) {
+        wstore.put({
+          word: word.toLowerCase(),
+          ...data[word],
+        });
+      }
 
-  console.log("LOOKUP received:", msg.word);
-
-  openDB().then((db) => {
-    const tx = db.transaction("dict", "readonly");
-    const store = tx.objectStore("dict");
-
-    const req = store.get(msg.word);
-
-    req.onsuccess = () => {
-      console.log("LOOKUP result:", req.result);
-      sendResponse(req.result || null);
+      wtx.oncomplete = () => {
+        console.log("[Ornagai] Seeding completed");
+        resolve();
+      };
     };
-
-    req.onerror = () => {
-      sendResponse(null);
-    };
-  });
-
-  return true; // 🔑 VERY IMPORTANT
-});
-
-const DEFAULT_SETTINGS = {
-  autoPopup: true,
-  ctrlOnly: false,
-};
-
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.set(DEFAULT_SETTINGS);
-});
-
-function getSettings() {
-  return new Promise((res) => {
-    chrome.storage.local.get(DEFAULT_SETTINGS, res);
   });
 }
+
+// -------------------------------
+// Extension install / update
+// -------------------------------
+chrome.runtime.onInstalled.addListener(async () => {
+  console.log("[Ornagai] Installed / Updated");
+
+  await chrome.storage.local.set({
+    autoPopup: true,
+    ctrlOnly: false,
+  });
+
+  // optional warm-up
+  await ensureDBReady();
+});
+
+// -------------------------------
+// Message handler (LOOKUP)
+// -------------------------------
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg?.type !== "LOOKUP") return;
+
+  (async () => {
+    try {
+      await ensureDBReady();
+
+      const db = await getDB();
+      const tx = db.transaction(STORE, "readonly");
+      const store = tx.objectStore(STORE);
+      const req = store.get(msg.word.toLowerCase());
+
+      req.onsuccess = () => {
+        sendResponse(req.result || null);
+      };
+
+      req.onerror = () => {
+        sendResponse(null);
+      };
+    } catch {
+      sendResponse(null);
+    }
+  })();
+
+  // ⭐ MUST for MV3 async response
+  return true;
+});
