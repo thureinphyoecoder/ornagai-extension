@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ornagai Extension</title>
+    <link rel="stylesheet" href="../styles/popup.css" />
+  </head>
+
+  <body>
+    <!-- HEADER -->
+    <header class="header">
+      <span class="title">Ornagai</span>
+      <button id="menuBtn" class="menu-btn">⚙️</button>
+
+      <div id="menu" class="menu hidden">
+        <label>
+          <input type="checkbox" id="autoPopup" />
+          Auto popup on select
+        </label>
+        <label>
+          <input type="checkbox" id="ctrlOnly" />
+          Ctrl + select only
+        </label>
+      </div>
+    </header>
+
+    <!-- MAIN -->
+    <main>
+      <!-- Search -->
+      <div class="search-row">
+        <input id="search" placeholder="Search word…" />
+      </div>
+
+      <!-- Panel -->
+      <div id="panel">
+        <!-- Empty state -->
+        <div id="empty" class="empty">Type a word to search</div>
+
+        <!-- Result -->
+        <div id="result" class="hidden">
+          <div class="result-item">
+            <div class="result-word">
+              <span id="r-word" class="word"></span>
+              <span id="r-type" class="badge"></span>
+            </div>
+
+            <div id="r-en" class="meaning"></div>
+            <div id="r-mm" class="meaning"></div>
+            <div id="r-note" class="note"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      Created With ❤️ by
+      <span>Thu Rein Phyo</span>
+    </footer>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

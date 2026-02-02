@@ -1,5 +1,19 @@
 {
+  "name": "myanmar-dictionary-extension",
+  "version": "1.0.0",
+  "description": "Myanmar Dictionary Extension for Chrome and Firefox",
+  "scripts": {
+    "clean": "rm -rf dist && mkdir -p dist/chrome-extension dist/firefox-extension",
+    "copy:chrome": "cp -r extension/src/* node_modules source dist/chrome-extension/ && cp extension/manifests/manifestchrome.json dist/chrome-extension/manifest.json",
+    "copy:firefox": "cp -r extension/src/* node_modules source dist/firefox-extension/ && cp extension/manifests/manifest.firefox.json dist/firefox-extension/manifest.json",
+    "build:chrome": "npm run clean && npm run copy:chrome",
+    "build:firefox": "npm run clean && npm run copy:firefox",
+    "build:all": "npm run clean && npm run copy:chrome && npm run copy:firefox",
+    "dev": "npm run build:all && echo '✅ Build completed!'"
+  },
   "dependencies": {
     "rabbit-node": "^1.0.4"
-  }
+  },
+  "author": "Thu Rein Phyo",
+  "license": "MIT"
 }

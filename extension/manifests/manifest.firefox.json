@@ -1,0 +1,35 @@
+{
+  "manifest_version": 2,
+  "name": "Ornagai Dictionary",
+  "version": "0.1.0",
+  "description": "Offline English–Myanmar dictionary using Ornagai data",
+
+  "permissions": ["storage"],
+
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "browser_action": {
+    "default_title": "Ornagai Dictionary",
+    "default_popup": "popup/popup.html"
+  },
+
+  "web_accessible_resources": ["data/ornagai.json", "fonts/*.ttf", "styles/inline-popup.css"],
+
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}
